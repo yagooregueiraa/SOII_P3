@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #define N 10
-#define iter 20
+#define iter 80
 
 void* productor(void* arg);
 void* consumidor(void* arg);
@@ -86,6 +86,58 @@ int remove_item(int iteracion)
     return item;
 }
 
+// Código del productor
+void* productor(void* arg)
+{
+    //Abrimos archivo de texto en modo lectura
+    FILE* fp = fopen("archivo.txt", "r");
+    if(fp == NULL){
+        printf("[ERROR]: Error al abrir el archivo en modo lectura");
+        pthread_exit(NULL);
+    }
+
+    //Bucle principal del productor
+    for(int i = 0; i < iter; i++)
+    {   
+        while(buffer.count == N);
+
+        // Producimos el item
+        int item = produce_item(fp);
+        
+        // Si llegamos al final del archivo de texto, rompemos el bucle
+        if (item == -1) 
+            break;
+
+        //-----------------REGION CRITICA----------------------------------------------//
+
+        // Cuando haya espacio, insertamos el elemento
+        insert_item(item, i);
+        //-------------------FIN REGION CRITICA--------------------------------------------//
+    }
+
+    pthread_exit((void*) 0);
+}
+
+// Código del consumidor
+void* consumidor(void* arg)
+{
+    //Bucle principal del consumidor
+    for(int i = 0; i < iter; i++)
+    {
+        while(buffer.count == 0);
+
+        //----------------------REGION CRITICA-----------------------------------------
+        //Recogemos item
+        int item  = remove_item(i);
+
+        //----------------------FIN REGION CRITICA-----------------------------------------
+
+        //Consumimos item
+        consume_item(item);
+    }
+
+    pthread_exit((void*) 0);
+}
 
 int main()
 {
@@ -114,59 +166,8 @@ int main()
     //Imprimimos sumas
     printf("RESULTADOS:\n\tSuma productor: %d\n\tSuma consumidor: %d\n", suma_productor, suma_consumidor);
     
+    printf("Programa acabado");
+    
     return 0;
 }
 
-// Código del productor
-void* productor(void* arg)
-{
-    //Abrimos archivo de texto en modo lectura
-    FILE* fp = fopen("archivo.txt", "r");
-    if(fp == NULL){
-        printf("[ERROR]: Error al abrir el archivo en modo lectura");
-        pthread_exit(NULL);
-    }
-
-    //Bucle principal del productor
-    for(int i = 0; i < iter; i++)
-    {   
-        while(buffer.count == N);
-
-        // Producimos el item
-        int item = produce_item(fp);
-        
-        // Si llegamos al final del archivo de texto, rompemos el bucle
-        if (item == EOF) 
-            break;
-
-        //-----------------REGION CRITICA----------------------------------------------//
-
-        // Cuando haya espacio, insertamos el elemento
-        insert_item(item, i);
-        //-------------------FIN REGION CRITICA--------------------------------------------//
-    }
-
-    pthread_exit((void*) 0);
-}
-
-// Código del consumidor
-void* consumidor(void* arg)
-{
-    //Bucle principal del consumidor
-    for(int i = 0; i < iter; i++)
-    {
-        while(buffer.count == 0);
-
-        //----------------------REGION CRITICA-----------------------------------------
-        //Recogemos item
-        sleep(1);
-        int item  = remove_item(i);
-
-        //----------------------FIN REGION CRITICA-----------------------------------------
-
-        //Consumimos item
-        consume_item(item);
-    }
-
-    pthread_exit((void*) 0);
-}
