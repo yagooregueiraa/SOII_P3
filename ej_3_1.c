@@ -1,4 +1,4 @@
-/* 3 PRODUCTORES Y 1 CONSUMIDOR HILOS CON MUTEX Y VARIABLES DE CONDICION COLA DE PRIORIDAD */
+    /* 3 PRODUCTORES Y 1 CONSUMIDOR HILOS CON MUTEX Y VARIABLES DE CONDICION COLA DE PRIORIDAD */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -176,7 +176,7 @@ void* productor(void* arg)
             sleep(1);
         }
         if (i >= 60){
-            sleep(rand() % 4); //valores entre 0 y 3 segundos
+            sleep(rand_r(&seed) % 4); //valores entre 0 y 3 segundos    
         }
     }
 
@@ -234,7 +234,7 @@ void* consumidor(void* arg)
             sleep(1);
         }
         if (i >= 60){
-            sleep(rand() % 4); //valores entre 0 y 3 segundos
+            sleep(rand_r(&seed) % 4); //valores entre 0 y 3 segundos
         }
     }
 
@@ -242,13 +242,15 @@ void* consumidor(void* arg)
     pthread_exit((void*) 0);
 }
 
-int main()
+int main(int argc, char** argv)
 {
     //Ahora 3 productores y 1 consumidor
     pthread_t prod[3], cons;
 
     //Un archivo por productor
-    char* archivos[] = {"prod1.txt", "prod2.txt", "prod3.txt"};
+    char* archivos[] = {(argc >= 2) ? argv[1] : "prod1.txt", 
+        (argc >= 3) ? argv[2] : "prod2.txt", 
+        (argc >= 3) ? argv[3] : "prod3.txt"};
 
     //inicializamos el buffer
     buffer.count = 0;
