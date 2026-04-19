@@ -81,9 +81,12 @@ void consume_item(PrioInt item, unsigned int* seed)
 //inserta un item en la cola por el final (en su rango de prioridad)
 void insert_item(int item, unsigned int prio, int iteracion)
 {
+
+    /* Buscamos la posicion de insercion: al final de los elementos
+    con igual o menor numero de prioridad (igual o más alta) */
     int indice = buffer.count - 1;
 
-    printf("[Iteración: %2d]Productor: Introduciendo %d en la posicion %d. Count: %d.\n",iteracion, item, indice, buffer.count);
+    printf("[Iteración: %2d]Productor %u: Introduciendo %d en la posicion %d. Count: %d.\n",iteracion,prio, item, indice, buffer.count);
 
     //Reordenamos elementos para mantener la estructura fifo y el orden de prioridad
     while (indice >= 0 && buffer.cola[indice].prioridad > prio) 
@@ -99,7 +102,7 @@ void insert_item(int item, unsigned int prio, int iteracion)
     //Aumentamos count
     buffer.count++;
 
-    printf("[Iteración: %2d]Productor: Count actualizado a %d.\n", iteracion, buffer.count);
+    printf("[Iteración: %2d]Productor %u: Count actualizado a %d.\n", iteracion,prio, buffer.count);
 }
 
 PrioInt remove_item(int iteracion)
@@ -113,12 +116,15 @@ PrioInt remove_item(int iteracion)
         buffer.cola[i - 1] = buffer.cola[i];
     }
 
-    printf("[Iteración: %2d]Consumidor: retiro %2d de la posicion %d. Count era: %d.\n",iteracion, retorno.dato, buffer.count - 1, buffer.count);
+    printf("[Iteración: %d]Consumidor: retiro %2d (prio %u) de la posicion %d. Count era: %d.\n",iteracion, retorno.dato,retorno.prioridad, buffer.count - 1, buffer.count);
 
     //Reducimos count
     buffer.count--;
+    // Ponemos a 0 el slot que quede libre al final
+    buffer.cola[buffer.count].dato      = 0;
+    buffer.cola[buffer.count].prioridad = 0;
 
-    printf("[Iteración: %2d]Consumidor: Count actualizado a %d.\n", iteracion, buffer.count);
+    printf("[Iteración: %d]Consumidor: Count actualizado a %d.\n", iteracion, buffer.count);
     return retorno;
 }
 
@@ -134,7 +140,7 @@ void* productor(void* arg)
     //abrimos archivo de texto en modo lectura
     FILE* fp = fopen(args.nombreArchivo, "r");
     if (fp == NULL){
-        printf("[ERROR]: Error al abrir el archivo en modo lectura\n");
+        printf("[ERROR] Productor %u: no se pudo abrir %s\n", args.id, args.nombreArchivo);
         pthread_exit(NULL);
     }
 
@@ -144,10 +150,9 @@ void* productor(void* arg)
         int item = produce_item(fp, args.id);
         esperaRandom(6, &seed); //Esperamos entre 1 y 6 segundos
 
-        //En caso de terminar de leer, el productor sale
-        if (item == -1)
-        {
-            pthread_cond_broadcast(&no_vacio);
+        if (item == -1) {
+            /* Archivo agotado antes de las 80 iteraciones */
+            printf("[Iteracion: %2d] Productor %u: acabo de leer el archivo\n", i,args.id);
             break;
         }
             
@@ -180,7 +185,7 @@ void* productor(void* arg)
         }
     }
 
-    printf("[-]Productor: Bucle terminado\n");
+    printf("[-]Productor %u: Bucle terminado\n",args.id);
 
     //Aumentamos suma de productores terminados, protegiendo el acceso con mutex
     pthread_mutex_lock(&mutex);
@@ -195,6 +200,7 @@ void* productor(void* arg)
 //codigo del consumidor
 void* consumidor(void* arg)
 {
+    (void)arg;
     //Semilla de aleatoriedad
     unsigned int seed = time(NULL) ^ pthread_self();
 
@@ -210,6 +216,7 @@ void* consumidor(void* arg)
 
         if(buffer.count == 0 && prod_fin == 3)
         {
+            pthread_mutex_unlock(&mutex); /*unlock antes de salir*/
             break;
         }
 
@@ -248,9 +255,11 @@ int main(int argc, char** argv)
     pthread_t prod[3], cons;
 
     //Un archivo por productor
-    char* archivos[] = {(argc >= 2) ? argv[1] : "prod1.txt", 
-        (argc >= 3) ? argv[2] : "prod2.txt", 
-        (argc >= 3) ? argv[3] : "prod3.txt"};
+    char* archivos[] = {
+    (argc >= 2) ? argv[1] : "archivo.txt",
+    (argc >= 3) ? argv[2] : "prod2.txt",
+    (argc >= 4) ? argv[3] : "prod3.txt"
+    };
 
     //inicializamos el buffer
     buffer.count = 0;
